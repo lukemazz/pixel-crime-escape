@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,7 +62,15 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				// Couleurs spécifiques pour notre jeu
+				'road': '#555555',
+				'grass': '#228B22',
+				'building': '#8B4513',
+				'police': '#0000FF',
+				'criminal': '#FF0000',
+				'car': '#FFFF00',
+				'wanted-level': '#FF0000',
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -84,11 +93,29 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'pulse-wanted': {
+					'0%, 100%': { opacity: '1' },
+					'50%': { opacity: '0.5' }
+				},
+				'car-movement': {
+					'0%': { transform: 'translateX(0) translateY(0)' },
+					'25%': { transform: 'translateX(2px) translateY(0)' },
+					'50%': { transform: 'translateX(0) translateY(2px)' },
+					'75%': { transform: 'translateX(-2px) translateY(0)' },
+					'100%': { transform: 'translateX(0) translateY(-2px)' }
+				},
+				'bullet': {
+					'0%': { transform: 'scale(0.5)', opacity: '1' },
+					'100%': { transform: 'scale(1.5)', opacity: '0' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'pulse-wanted': 'pulse-wanted 1s ease-in-out infinite',
+				'car-movement': 'car-movement 0.5s ease-in-out infinite',
+				'bullet': 'bullet 0.3s ease-out forwards'
 			}
 		}
 	},
