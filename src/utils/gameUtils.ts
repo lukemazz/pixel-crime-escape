@@ -21,24 +21,43 @@ export const getDistance = (pos1: Position, pos2: Position): number => {
   return Math.sqrt(Math.pow(pos2.x - pos1.x, 2) + Math.pow(pos2.y - pos1.y, 2));
 };
 
+// Genere una posizione casuale all'interno della mappa
+export const getRandomPosition = (mapWidth: number, mapHeight: number): Position => {
+  return {
+    x: Math.random() * (mapWidth - 40) + 20,
+    y: Math.random() * (mapHeight - 40) + 20
+  };
+};
+
 // Déplace une entité dans une direction
 export const moveEntity = (entity: Entity, direction: Direction, gameState: GameState): Position => {
   const newPosition = { ...entity.position };
   
+  // Ottieni la velocità effettiva (può essere modificata se si tratta di una macchina)
+  const effectiveSpeed = entity.speed;
+  
   switch (direction) {
     case 'up':
-      newPosition.y -= entity.speed;
+      newPosition.y -= effectiveSpeed;
       break;
     case 'down':
-      newPosition.y += entity.speed;
+      newPosition.y += effectiveSpeed;
       break;
     case 'left':
-      newPosition.x -= entity.speed;
+      newPosition.x -= effectiveSpeed;
       break;
     case 'right':
-      newPosition.x += entity.speed;
+      newPosition.x += effectiveSpeed;
       break;
   }
+  
+  // Limiti della mappa
+  const GAME_WIDTH = 1600;
+  const GAME_HEIGHT = 1200;
+  
+  // Mantieni l'entità all'interno dei limiti della mappa
+  newPosition.x = Math.max(0, Math.min(newPosition.x, GAME_WIDTH - entity.width));
+  newPosition.y = Math.max(0, Math.min(newPosition.y, GAME_HEIGHT - entity.height));
   
   // Vérifier les collisions avec les bâtiments (simplifié)
   const willCollide = false; // À implémenter avec la vraie logique de collision
@@ -77,8 +96,8 @@ export const playerShoot = (player: Player, direction: Direction): Bullet => {
     position: bulletPosition,
     direction,
     speed: bulletSpeed,
-    width: 4,
-    height: 4,
+    width: 6,
+    height: 6,
     isAlive: true,
     shooter: player,
     damage: 1,
@@ -89,8 +108,19 @@ export const playerShoot = (player: Player, direction: Direction): Bullet => {
 
 // Voler une voiture
 export const stealCar = (player: Player, car: Car): { updatedPlayer: Player, updatedCar: Car } => {
-  const updatedPlayer = { ...player, inCar: true, currentCar: car };
-  const updatedCar = { ...car, driver: player };
+  // Posiziona il player correttamente all'interno dell'auto
+  const updatedPlayer = { 
+    ...player, 
+    inCar: true, 
+    currentCar: car,
+    position: { ...car.position } // Il giocatore si posiziona al centro dell'auto
+  };
+  
+  const updatedCar = { 
+    ...car, 
+    driver: player,
+    speed: 0 // L'auto parte da ferma quando viene rubata
+  };
   
   return { updatedPlayer, updatedCar };
 };
@@ -101,16 +131,31 @@ export const exitCar = (player: Player): { updatedPlayer: Player, updatedCar: Ca
     return { updatedPlayer: player, updatedCar: null };
   }
   
-  const updatedCar = { ...player.currentCar, driver: null };
+  const updatedCar = { ...player.currentCar, driver: null, speed: 0 };
+  
+  // Posiziona il giocatore a fianco dell'auto in base alla direzione
+  let exitPosition = { ...player.currentCar.position };
+  
+  switch (player.currentCar.direction) {
+    case 'up':
+      exitPosition.x += player.currentCar.width + 5;
+      break;
+    case 'down':
+      exitPosition.x -= player.width + 5;
+      break;
+    case 'left':
+      exitPosition.y += player.currentCar.height + 5;
+      break;
+    case 'right':
+      exitPosition.y -= player.height + 5;
+      break;
+  }
+  
   const updatedPlayer = { 
     ...player, 
     inCar: false, 
     currentCar: null,
-    // Positionner le joueur à côté de la voiture
-    position: {
-      x: updatedCar.position.x + updatedCar.width + 5,
-      y: updatedCar.position.y
-    }
+    position: exitPosition
   };
   
   return { updatedPlayer, updatedCar };
@@ -158,7 +203,32 @@ export const policeChasePlayer = (police: Police, player: Player): Police => {
 // Déplace la police en fonction de sa cible
 export const movePolice = (police: Police, gameState: GameState): Police => {
   if (!police.chasing || !police.target) {
-    // Patrouille normale (à implémenter)
+    // Patrouille normale (segui i waypoints)
+    if (police.patrolPath && police.patrolPath.length > 0) {
+      const currentPatrolIndex = police.currentPatrolIndex || 0;
+      const currentWaypoint = police.patrolPath[currentPatrolIndex];
+      const distToWaypoint = getDistance(police.position, currentWaypoint);
+      
+      // Se siamo arrivati al waypoint, vai al prossimo
+      if (distToWaypoint < 20) {
+        const newIndex = (currentPatrolIndex + 1) % police.patrolPath.length;
+        return { ...police, currentPatrolIndex: newIndex };
+      }
+      
+      // Calcola la direzione verso il waypoint
+      let direction: Direction = police.direction;
+      
+      if (Math.abs(currentWaypoint.x - police.position.x) > Math.abs(currentWaypoint.y - police.position.y)) {
+        direction = currentWaypoint.x > police.position.x ? 'right' : 'left';
+      } else {
+        direction = currentWaypoint.y > police.position.y ? 'down' : 'up';
+      }
+      
+      // Muovi verso il waypoint
+      const newPosition = moveEntity({ ...police, direction }, direction, gameState);
+      return { ...police, position: newPosition, direction };
+    }
+    
     return police;
   }
   

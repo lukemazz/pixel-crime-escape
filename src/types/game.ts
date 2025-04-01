@@ -25,11 +25,15 @@ export interface Player extends Entity {
   currentCar: Car | null;
   wantedLevel: number;
   hasGun: boolean;
+  name: string;
 }
 
 export interface Pedestrian extends Entity {
   type: 'pedestrian';
   isHostile: boolean;
+  waypoints?: Position[];
+  currentWaypoint?: number;
+  lastDirectionChange: number;
 }
 
 export interface Police extends Entity {
@@ -38,6 +42,7 @@ export interface Police extends Entity {
   chasing: boolean;
   target?: Player;
   detectionRadius: number;
+  currentPatrolIndex?: number;
 }
 
 export interface Car extends Entity {
@@ -53,6 +58,14 @@ export interface Bullet extends Entity {
   damage: number;
   range: number;
   distanceTraveled: number;
+  timestamp?: number;
+}
+
+export interface ChatMessage {
+  sender: string;
+  text: string;
+  timestamp: string;
+  type?: 'normal' | 'system';
 }
 
 export type GameState = {
@@ -63,4 +76,10 @@ export type GameState = {
   bullets: Bullet[];
   score: number;
   gameOver: boolean;
+  messages: ChatMessage[];
+  camera: {
+    x: number;
+    y: number;
+  };
+  lastActionTime?: number;
 };
