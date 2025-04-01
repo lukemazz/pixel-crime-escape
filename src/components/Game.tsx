@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GameState, Player, Car, Police, Pedestrian, Direction, Bullet } from '../types/game';
-import { detectCollision, moveEntity, playerShoot, stealCar, exitCar, updateWantedLevel, policeChasePlayer, movePolice, generateId, getRandomPosition } from '../utils/gameUtils';
+import { detectCollision, moveEntity, playerShoot, stealCar, exitCar, updateWantedLevel, policeChasePlayer, movePolice, generateId, getRandomPosition, getDistance } from '../utils/gameUtils';
 import GameMap from './GameMap';
 import PlayerEntity from './entities/PlayerEntity';
 import PedestrianEntity from './entities/PedestrianEntity';

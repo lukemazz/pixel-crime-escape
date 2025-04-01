@@ -9,14 +9,17 @@ interface BulletEntityProps {
 const BulletEntity: React.FC<BulletEntityProps> = ({ bullet }) => {
   return (
     <div 
-      className="absolute bg-yellow-500 rounded-full shadow-lg animate-pulse"
+      className="absolute bg-yellow-400 rounded-full shadow-lg"
       style={{
         left: bullet.position.x,
         top: bullet.position.y,
         width: bullet.width,
         height: bullet.height,
         zIndex: 30,
-        boxShadow: '0 0 5px 2px rgba(255, 255, 0, 0.7)',
+        boxShadow: '0 0 10px 3px rgba(255, 215, 0, 0.8)',
+        transform: `scale(${1 + (bullet.distanceTraveled / bullet.range) * 0.5})`,
+        opacity: 1 - (bullet.distanceTraveled / bullet.range) * 0.7,
+        transition: 'transform 100ms linear, opacity 100ms linear',
       }}
     ></div>
   );
