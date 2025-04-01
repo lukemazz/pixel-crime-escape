@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 
 interface GameMapProps {
@@ -36,13 +35,20 @@ interface Park {
   height: number;
 }
 
+const staticSeed = 12345;
+const pseudoRandom = (seed: number) => {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+};
+
+const seededRandom = (index: number) => {
+  return pseudoRandom(staticSeed + index);
+};
+
 const GameMap: React.FC<GameMapProps> = ({ width, height }) => {
-  // Using useMemo to ensure the map is generated only once and remains static
   const { roads, buildings, waters, parks } = useMemo(() => {
-    // Generate a grid of roads
     const roads: Road[] = [];
     
-    // Horizontal roads
     for (let y = 150; y < height; y += 250) {
       roads.push({
         x: 0,
@@ -53,7 +59,6 @@ const GameMap: React.FC<GameMapProps> = ({ width, height }) => {
       });
     }
     
-    // Vertical roads
     for (let x = 150; x < width; x += 250) {
       roads.push({
         x,
@@ -64,27 +69,30 @@ const GameMap: React.FC<GameMapProps> = ({ width, height }) => {
       });
     }
     
-    // Generate districts
     const buildings: Building[] = [];
     const buildingTypes: ('residential' | 'commercial' | 'industrial')[] = ['residential', 'commercial', 'industrial'];
     
-    // Cycle through the "districts" created by roads
+    let buildingIndex = 0;
     for (let gridX = 0; gridX < Math.floor(width / 250); gridX++) {
       for (let gridY = 0; gridY < Math.floor(height / 250); gridY++) {
         const startX = gridX * 250 + 50;
         const startY = gridY * 250 + 50;
-        const quarterType = buildingTypes[Math.floor(Math.random() * buildingTypes.length)];
+        const districtIndex = gridX * Math.floor(height / 250) + gridY;
+        const quarterType = buildingTypes[Math.floor(seededRandom(districtIndex * 1000) * buildingTypes.length)];
         
-        // Generate multiple buildings within each district
-        const buildingsCount = 3 + Math.floor(Math.random() * 5);
+        const buildingsCount = 3 + Math.floor(seededRandom(districtIndex) * 5);
         
         for (let i = 0; i < buildingsCount; i++) {
-          const buildingX = startX + Math.random() * 100;
-          const buildingY = startY + Math.random() * 100;
-          const buildingWidth = 30 + Math.random() * 60;
-          const buildingHeight = 30 + Math.random() * 60;
+          const randSeed1 = buildingIndex * 3 + 1;
+          const randSeed2 = buildingIndex * 3 + 2;
+          const randSeed3 = buildingIndex * 3 + 3;
+          const randSeed4 = buildingIndex * 3 + 4;
           
-          // Avoid overlapping with roads
+          const buildingX = startX + seededRandom(randSeed1) * 100;
+          const buildingY = startY + seededRandom(randSeed2) * 100;
+          const buildingWidth = 30 + seededRandom(randSeed3) * 60;
+          const buildingHeight = 30 + seededRandom(randSeed4) * 60;
+          
           const overlapsRoad = roads.some(road => (
             (buildingX < road.x + road.width) &&
             (buildingX + buildingWidth > road.x) &&
@@ -101,32 +109,30 @@ const GameMap: React.FC<GameMapProps> = ({ width, height }) => {
               type: quarterType
             });
           }
+          
+          buildingIndex++;
         }
       }
     }
     
-    // Generate water (lakes, rivers) - making a larger central lake for water bikes
     const waters: Water[] = [
       { x: width * 0.4, y: height * 0.4, width: width * 0.2, height: height * 0.2 },
       { x: width * 0.05, y: height * 0.7, width: width * 0.15, height: height * 0.2 },
       { x: width * 0.7, y: height * 0.1, width: width * 0.2, height: height * 0.15 }
     ];
     
-    // Generate parks
     const parks: Park[] = [
       { x: width * 0.3, y: height * 0.3, width: width * 0.1, height: height * 0.1 },
       { x: width * 0.6, y: height * 0.6, width: width * 0.15, height: height * 0.15 }
     ];
     
     return { roads, buildings, waters, parks };
-  }, [width, height]); // Dependencies for useMemo
+  }, []); // Empty dependency array ensures map is only generated once
   
   return (
     <div className="absolute inset-0 bg-grass">
-      {/* Background */}
       <div className="absolute inset-0 bg-emerald-800"></div>
       
-      {/* Water */}
       {waters.map((water, index) => (
         <div 
           key={`water-${index}`}
@@ -137,15 +143,14 @@ const GameMap: React.FC<GameMapProps> = ({ width, height }) => {
             width: water.width,
             height: water.height,
             borderRadius: '30%',
-            boxShadow: 'inset 0 0 10px rgba(0, 0, 0, 0.5)'
+            boxShadow: 'inset 0 0 10px rgba(0, 0, 0, 0.5)',
+            zIndex: 10
           }}
         >
-          {/* Subtle waves on water */}
           <div className="absolute inset-0 opacity-20 bg-blue-400 animate-pulse"></div>
         </div>
       ))}
       
-      {/* Parks */}
       {parks.map((park, index) => (
         <div 
           key={`park-${index}`}
@@ -156,17 +161,17 @@ const GameMap: React.FC<GameMapProps> = ({ width, height }) => {
             width: park.width,
             height: park.height,
             borderRadius: '10px',
-            boxShadow: 'inset 0 0 10px rgba(0, 0, 0, 0.2)'
+            boxShadow: 'inset 0 0 10px rgba(0, 0, 0, 0.2)',
+            zIndex: 11
           }}
         >
-          {/* Trees in the park */}
           {Array.from({ length: 10 }).map((_, i) => (
             <div 
               key={`tree-${index}-${i}`}
               className="absolute bg-green-800 rounded-full"
               style={{
-                left: Math.random() * (park.width - 15),
-                top: Math.random() * (park.height - 15),
+                left: seededRandom(i * 100 + index * 1000) * (park.width - 15),
+                top: seededRandom(i * 100 + index * 1000 + 50) * (park.height - 15),
                 width: 15,
                 height: 15
               }}
@@ -175,7 +180,6 @@ const GameMap: React.FC<GameMapProps> = ({ width, height }) => {
         </div>
       ))}
       
-      {/* Roads */}
       {roads.map((road, index) => (
         <div 
           key={`road-${index}`}
@@ -185,16 +189,15 @@ const GameMap: React.FC<GameMapProps> = ({ width, height }) => {
             top: road.y,
             width: road.width,
             height: road.height,
-            zIndex: 10
+            zIndex: 15
           }}
         >
-          {/* Center lines of the road */}
           {road.isVertical ? (
             <div 
               className="absolute h-full w-1 bg-yellow-400 left-1/2 transform -translate-x-1/2"
               style={{ 
                 backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 10px, #333333 10px, #333333 20px)',
-                zIndex: 11
+                zIndex: 16
               }}
             ></div>
           ) : (
@@ -202,16 +205,14 @@ const GameMap: React.FC<GameMapProps> = ({ width, height }) => {
               className="absolute w-full h-1 bg-yellow-400 top-1/2 transform -translate-y-1/2"
               style={{ 
                 backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 10px, #333333 10px, #333333 20px)',
-                zIndex: 11
+                zIndex: 16
               }}
             ></div>
           )}
         </div>
       ))}
       
-      {/* Buildings */}
       {buildings.map((building, index) => {
-        // Determine the color of the building based on type
         let bgColor = 'bg-building';
         let windowColor = 'bg-yellow-100';
         
@@ -242,7 +243,6 @@ const GameMap: React.FC<GameMapProps> = ({ width, height }) => {
               zIndex: 20
             }}
           >
-            {/* Windows of buildings */}
             {Array.from({ length: Math.floor(building.width / 15) }).map((_, i) => (
               Array.from({ length: Math.floor(building.height / 15) }).map((_, j) => (
                 <div 

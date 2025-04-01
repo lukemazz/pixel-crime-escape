@@ -35,22 +35,26 @@ const CarEntity: React.FC<CarEntityProps> = ({ car }) => {
     }
   }
   
+  // Determine rotation based on direction
+  let rotationDegrees = 0;
+  switch (car.direction) {
+    case 'up': rotationDegrees = 0; break;
+    case 'right': rotationDegrees = 90; break;
+    case 'down': rotationDegrees = 180; break;
+    case 'left': rotationDegrees = 270; break;
+  }
+  
   return (
     <div 
       className={`absolute rounded ${car.driver?.type === 'police' ? 'bg-police' : 'bg-opacity-90'}`}
       style={{
         left: car.position.x,
         top: car.position.y,
-        width: isHorizontal ? car.width : car.height,
-        height: isHorizontal ? car.height : car.width,
+        width: car.width,
+        height: car.height,
         backgroundColor: car.driver?.type === 'police' ? undefined : car.color,
         transition: 'transform 0.1s',
-        transform: `rotate(${
-          car.direction === 'up' ? '0deg' :
-          car.direction === 'right' ? '90deg' :
-          car.direction === 'down' ? '180deg' :
-          car.direction === 'left' ? '270deg' : '0deg'
-        }) rotate(${driftAngle}deg)`,
+        transform: `rotate(${rotationDegrees}deg) rotate(${driftAngle}deg)`,
         zIndex: 25
       }}
     >

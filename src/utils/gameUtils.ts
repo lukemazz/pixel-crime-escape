@@ -415,8 +415,9 @@ export const movePolice = (police: Police, gameState: GameState): Police => {
     direction = targetPosition.y > police.position.y ? 'down' : 'up';
   }
   
-  // Police speed increases with player's wanted level
-  const speedMultiplier = 1 + (police.target.wantedLevel * 0.2);
+  // Police speed increases with player's wanted level but can't exceed player's speed
+  // Speed multiplier capped at 1.0 (equal to player) at max wanted level
+  const speedMultiplier = Math.min(1.0, 0.6 + (police.target.wantedLevel * 0.08));
   const adjustedSpeed = police.speed * speedMultiplier;
   
   // Create a new police instance with adjusted speed
@@ -428,7 +429,8 @@ export const movePolice = (police: Police, gameState: GameState): Police => {
   // Check if police should shoot
   let shouldShoot = false;
   const now = Date.now();
-  const shootingCooldown = 1000 - (police.target.wantedLevel * 100); // Faster shooting with higher wanted level
+  // Slower shooting with less aggressive cooldown scaling
+  const shootingCooldown = 1500 - (police.target.wantedLevel * 150); 
   
   if (
     police.hasGun && 

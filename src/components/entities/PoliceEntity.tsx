@@ -7,6 +7,15 @@ interface PoliceEntityProps {
 }
 
 const PoliceEntity: React.FC<PoliceEntityProps> = ({ police }) => {
+  // Determine the rotation based on direction
+  let rotationDegrees = 0;
+  switch (police.direction) {
+    case 'up': rotationDegrees = 0; break;
+    case 'right': rotationDegrees = 90; break;
+    case 'down': rotationDegrees = 180; break;
+    case 'left': rotationDegrees = 270; break;
+  }
+
   return (
     <div 
       className={`absolute rounded-full ${police.chasing ? 'bg-red-700 animate-pulse' : 'bg-blue-800'}`}
@@ -16,12 +25,7 @@ const PoliceEntity: React.FC<PoliceEntityProps> = ({ police }) => {
         width: police.width,
         height: police.height,
         transition: 'transform 0.1s',
-        transform: `rotate(${
-          police.direction === 'up' ? '0deg' :
-          police.direction === 'right' ? '90deg' :
-          police.direction === 'down' ? '180deg' :
-          police.direction === 'left' ? '270deg' : '0deg'
-        })`,
+        transform: `rotate(${rotationDegrees}deg)`,
         zIndex: 28
       }}
     >
@@ -43,12 +47,7 @@ const PoliceEntity: React.FC<PoliceEntityProps> = ({ police }) => {
                   police.direction === 'left' ? '-25%' : '50%',
             top: police.direction === 'down' ? '100%' : 
                  police.direction === 'up' ? '-10%' : '50%',
-            transform: `rotate(${
-              police.direction === 'up' ? '0deg' :
-              police.direction === 'right' ? '90deg' :
-              police.direction === 'down' ? '180deg' :
-              police.direction === 'left' ? '270deg' : '0deg'
-            })`
+            transform: `rotate(${rotationDegrees}deg)`
           }}
         ></div>
       )}
