@@ -9,7 +9,7 @@ interface PoliceEntityProps {
 const PoliceEntity: React.FC<PoliceEntityProps> = ({ police }) => {
   return (
     <div 
-      className={`absolute rounded-full bg-police ${police.chasing ? 'animate-pulse' : ''}`}
+      className={`absolute rounded-full ${police.chasing ? 'bg-red-700 animate-pulse' : 'bg-blue-800'}`}
       style={{
         left: police.position.x,
         top: police.position.y,
@@ -22,17 +22,36 @@ const PoliceEntity: React.FC<PoliceEntityProps> = ({ police }) => {
           police.direction === 'down' ? '180deg' :
           police.direction === 'left' ? '270deg' : '0deg'
         })`,
+        zIndex: 28
       }}
     >
-      {/* Yeux pour indiquer la direction */}
+      {/* Eyes to indicate direction */}
       <div className="absolute bg-white w-2 h-2 rounded-full" style={{ left: '25%', top: '25%' }}></div>
       <div className="absolute bg-white w-2 h-2 rounded-full" style={{ right: '25%', top: '25%' }}></div>
       
-      {/* Sirène de police */}
+      {/* Police badge */}
       <div className="absolute top-0 left-0 right-0 mx-auto w-4 h-2 flex">
         <div className="w-2 h-2 bg-blue-500 animate-pulse"></div>
         <div className="w-2 h-2 bg-red-500 animate-pulse"></div>
       </div>
+      
+      {/* Gun if police is armed and chasing */}
+      {police.hasGun && police.chasing && (
+        <div className="absolute w-4 h-1 bg-gray-800"
+          style={{
+            left: police.direction === 'right' ? '100%' : 
+                  police.direction === 'left' ? '-25%' : '50%',
+            top: police.direction === 'down' ? '100%' : 
+                 police.direction === 'up' ? '-10%' : '50%',
+            transform: `rotate(${
+              police.direction === 'up' ? '0deg' :
+              police.direction === 'right' ? '90deg' :
+              police.direction === 'down' ? '180deg' :
+              police.direction === 'left' ? '270deg' : '0deg'
+            })`
+          }}
+        ></div>
+      )}
     </div>
   );
 };

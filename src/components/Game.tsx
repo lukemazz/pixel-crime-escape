@@ -1,18 +1,20 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { GameState, Player, Car, Police, Pedestrian, Direction, Bullet } from '../types/game';
-import { detectCollision, moveEntity, playerShoot, stealCar, exitCar, updateWantedLevel, policeChasePlayer, movePolice, generateId, getRandomPosition, getDistance } from '../utils/gameUtils';
+import { GameState, Player, Car, Police, Pedestrian, Direction, Bullet, WaterBike } from '../types/game';
+import { detectCollision, moveEntity, playerShoot, stealCar, exitVehicle, updateWantedLevel, policeChasePlayer, 
+  movePolice, generateId, getRandomPosition, getDistance, isInWater, stealWaterBike, moveCar, policeShoot } from '../utils/gameUtils';
 import GameMap from './GameMap';
 import PlayerEntity from './entities/PlayerEntity';
 import PedestrianEntity from './entities/PedestrianEntity';
 import PoliceEntity from './entities/PoliceEntity';
 import CarEntity from './entities/CarEntity';
 import BulletEntity from './entities/BulletEntity';
+import WaterBikeEntity from './entities/WaterBikeEntity';
 import GameHUD from './GameHUD';
 import GameChat from './multiplayer/GameChat';
 
-const GAME_WIDTH = 1600;  // Mappa più grande
-const GAME_HEIGHT = 1200; // Mappa più grande
+const GAME_WIDTH = 1600;
+const GAME_HEIGHT = 1200;
 const VIEWPORT_WIDTH = 800;
 const VIEWPORT_HEIGHT = 600;
 const FPS = 60;
@@ -21,7 +23,7 @@ const Game: React.FC = () => {
   const gameContainerRef = useRef<HTMLDivElement>(null);
   
   const [gameState, setGameState] = useState<GameState>(() => {
-    // Initialiser le joueur
+    // Initialize player
     const player: Player = {
       id: 'player-1',
       type: 'player',
@@ -38,7 +40,7 @@ const Game: React.FC = () => {
       name: 'Player 1'
     };
     
-    // Initialiser les piétons avec mouvement aléatoire
+    // Initialize pedestrians with random movement
     const pedestrians: Pedestrian[] = Array.from({ length: 20 }).map((_, i) => ({
       id: `pedestrian-${i}`,
       type: 'pedestrian',
@@ -56,37 +58,76 @@ const Game: React.FC = () => {
       lastDirectionChange: Date.now()
     }));
     
-    // Initialiser la police
-    const police: Police[] = Array.from({ length: 5 }).map((_, i) => ({
-      id: `police-${i}`,
-      type: 'police',
-      position: getRandomPosition(GAME_WIDTH, GAME_HEIGHT),
-      direction: ['up', 'down', 'left', 'right'][Math.floor(Math.random() * 4)] as Direction,
-      speed: 2,
-      width: 20,
-      height: 20,
-      isAlive: true,
-      chasing: false,
-      detectionRadius: 150,
-      patrolPath: Array.from({ length: 3 + Math.floor(Math.random() * 3) }).map(() => 
-        getRandomPosition(GAME_WIDTH, GAME_HEIGHT)
-      ),
-      currentPatrolIndex: 0
-    }));
+    // Initialize police
+    const police: Police[] = Array.from({ length: 10 }).map((_, i) => {
+      const isInPoliceCar = i < 5; // First 5 police officers are in cars
+      return {
+        id: `police-${i}`,
+        type: 'police',
+        position: getRandomPosition(GAME_WIDTH, GAME_HEIGHT),
+        direction: ['up', 'down', 'left', 'right'][Math.floor(Math.random() * 4)] as Direction,
+        speed: isInPoliceCar ? 1 : 2, // Slower base speed when in car (car has its own speed)
+        width: 20,
+        height: 20,
+        isAlive: true,
+        chasing: false,
+        detectionRadius: 150,
+        patrolPath: Array.from({ length: 3 + Math.floor(Math.random() * 3) }).map(() => 
+          getRandomPosition(GAME_WIDTH, GAME_HEIGHT)
+        ),
+        currentPatrolIndex: 0,
+        hasGun: true,
+        inCar: isInPoliceCar
+      };
+    });
     
-    // Initialiser les voitures
-    const cars: Car[] = Array.from({ length: 10 }).map((_, i) => ({
-      id: `car-${i}`,
-      type: 'car',
-      position: getRandomPosition(GAME_WIDTH, GAME_HEIGHT),
+    // Initialize cars
+    const cars: Car[] = Array.from({ length: 15 }).map((_, i) => {
+      const car = {
+        id: `car-${i}`,
+        type: 'car' as const,
+        position: getRandomPosition(GAME_WIDTH, GAME_HEIGHT),
+        direction: ['up', 'down', 'left', 'right'][Math.floor(Math.random() * 4)] as Direction,
+        speed: 0,
+        width: 30,
+        height: 15,
+        isAlive: true,
+        color: ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFFFFF', '#FFA500'][Math.floor(Math.random() * 8)],
+        driver: null,
+        maxSpeed: 5,
+        driftFactor: 0.95,
+        velocity: { x: 0, y: 0 }
+      };
+      
+      // Assign police officers to police cars
+      if (i < 5) {
+        car.driver = police[i];
+        car.color = '#3333FF'; // Police car color
+      }
+      
+      return car;
+    });
+    
+    // Initialize water bikes near water areas
+    const waterLocations = [
+      { x: GAME_WIDTH * 0.45, y: GAME_HEIGHT * 0.45 },
+      { x: GAME_WIDTH * 0.1, y: GAME_HEIGHT * 0.75 },
+      { x: GAME_WIDTH * 0.75, y: GAME_HEIGHT * 0.15 }
+    ];
+    
+    const waterBikes: WaterBike[] = waterLocations.map((loc, i) => ({
+      id: `water-bike-${i}`,
+      type: 'waterBike',
+      position: { x: loc.x, y: loc.y },
       direction: ['up', 'down', 'left', 'right'][Math.floor(Math.random() * 4)] as Direction,
       speed: 0,
-      width: 30,
-      height: 15,
+      width: 25,
+      height: 12,
       isAlive: true,
-      color: ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFFFFF', '#FFA500'][Math.floor(Math.random() * 8)],
+      color: ['#00AAFF', '#33FFFF', '#66CCFF'][Math.floor(Math.random() * 3)],
       driver: null,
-      maxSpeed: 5
+      maxSpeed: 6,
+      isInWater: true
     }));
     
     return {
@@ -94,6 +135,7 @@ const Game: React.FC = () => {
       pedestrians,
       police,
       cars,
+      waterBikes,
       bullets: [],
       score: 0,
       gameOver: false,
@@ -101,7 +143,9 @@ const Game: React.FC = () => {
       camera: {
         x: player.position.x - VIEWPORT_WIDTH / 2,
         y: player.position.y - VIEWPORT_HEIGHT / 2
-      }
+      },
+      showChat: false,
+      lastChatTime: 0
     };
   });
   
@@ -110,31 +154,31 @@ const Game: React.FC = () => {
   const [showChat, setShowChat] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
   
-  // Aggiorna la viewport per seguire il giocatore
+  // Update viewport to follow player
   useEffect(() => {
-    // Calcola la posizione centrale della viewport basata sulla posizione del giocatore
+    // Calculate the central position of the viewport based on player position
     let centerX = gameState.player.position.x - VIEWPORT_WIDTH / 2;
     let centerY = gameState.player.position.y - VIEWPORT_HEIGHT / 2;
     
-    // Limita la viewport entro i limiti della mappa
+    // Limit viewport within map boundaries
     centerX = Math.max(0, Math.min(centerX, GAME_WIDTH - VIEWPORT_WIDTH));
     centerY = Math.max(0, Math.min(centerY, GAME_HEIGHT - VIEWPORT_HEIGHT));
     
     setViewportPosition({ x: centerX, y: centerY });
   }, [gameState.player.position]);
   
-  // Gestionnaire de touches
+  // Key handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Apri la chat con il tasto T
+      // Open chat with T key
       if (e.key.toLowerCase() === 't' && !showChat) {
         setShowChat(true);
         return;
       }
       
-      // Se la chat è aperta, non processare altri input
+      // If chat is open, don't process other inputs
       if (showChat) {
-        // Chiudi la chat con ESC
+        // Close chat with ESC
         if (e.key === 'Escape') {
           setShowChat(false);
           setChatMessage("");
@@ -166,7 +210,7 @@ const Game: React.FC = () => {
     };
   }, [showChat]);
   
-  // Gestione delle input di chat
+  // Chat input handling
   const handleSendMessage = () => {
     if (chatMessage.trim()) {
       setGameState(prevState => ({
@@ -174,123 +218,188 @@ const Game: React.FC = () => {
         messages: [
           ...prevState.messages,
           { sender: prevState.player.name, text: chatMessage, timestamp: new Date().toISOString() }
-        ]
+        ],
+        lastChatTime: Date.now(),
+        showChat: true
       }));
       setChatMessage("");
       setShowChat(false);
     }
   };
   
-  // Gestion des entrées utilisateur
+  // User input handling
   const handleUserInput = useCallback((state: GameState): GameState => {
-    let { player, bullets, cars } = state;
+    let { player, bullets, cars, waterBikes } = state;
     let direction: Direction | null = null;
     
-    // Déplacement
+    // Movement
     if (keysPressed.has('w') || keysPressed.has('arrowup')) direction = 'up';
     else if (keysPressed.has('s') || keysPressed.has('arrowdown')) direction = 'down';
     else if (keysPressed.has('a') || keysPressed.has('arrowleft')) direction = 'left';
     else if (keysPressed.has('d') || keysPressed.has('arrowright')) direction = 'right';
     
-    // Si une direction est choisie, on met à jour la position du joueur ou de sa voiture
+    // If a direction is chosen, update player or vehicle position
     if (direction) {
       player = { ...player, direction };
       
       if (player.inCar && player.currentCar) {
-        const newPosition = moveEntity({ ...player.currentCar, speed: player.currentCar.maxSpeed }, direction, state);
-        const updatedCar = { ...player.currentCar, position: newPosition, direction, speed: player.currentCar.maxSpeed };
-        player = { ...player, currentCar: updatedCar };
+        const currentVehicle = player.currentCar;
         
-        // Mettre à jour la voiture dans la liste des voitures
-        cars = cars.map(car => car.id === updatedCar.id ? updatedCar : car);
+        if (currentVehicle.type === 'car') {
+          // Move car with physics
+          const car = currentVehicle as Car;
+          const { position, velocity } = moveCar(car, direction, state);
+          const updatedCar = { ...car, position, velocity, direction };
+          player = { ...player, currentCar: updatedCar };
+          
+          // Update car in the list
+          cars = cars.map(c => c.id === updatedCar.id ? updatedCar : c);
+        } else if (currentVehicle.type === 'waterBike') {
+          // Move water bike
+          const waterBike = currentVehicle as WaterBike;
+          
+          // Only move if in water
+          if (isInWater(waterBike.position, state)) {
+            const newPosition = moveEntity({ ...waterBike, speed: waterBike.maxSpeed }, direction, state);
+            const updatedWaterBike = { ...waterBike, position: newPosition, direction, speed: waterBike.maxSpeed };
+            player = { ...player, currentCar: updatedWaterBike };
+            
+            // Update water bike in the list
+            waterBikes = waterBikes.map(wb => wb.id === updatedWaterBike.id ? updatedWaterBike : wb);
+          }
+        }
       } else {
         const newPosition = moveEntity(player, direction, state);
         player = { ...player, position: newPosition };
       }
     } else if (player.inCar && player.currentCar) {
-      // Rallenta la macchina se non si preme nessun tasto di direzione
-      const updatedCar = { ...player.currentCar, speed: Math.max(0, player.currentCar.speed - 0.2) };
-      player = { ...player, currentCar: updatedCar };
-      cars = cars.map(car => car.id === updatedCar.id ? updatedCar : car);
+      // Slow down vehicle if no direction key is pressed
+      const currentVehicle = player.currentCar;
+      
+      if (currentVehicle.type === 'car') {
+        // Apply car deceleration
+        const car = currentVehicle as Car;
+        const { position, velocity } = moveCar(car, null, state);
+        const updatedCar = { ...car, position, velocity };
+        player = { ...player, currentCar: updatedCar };
+        cars = cars.map(c => c.id === updatedCar.id ? updatedCar : c);
+      } else if (currentVehicle.type === 'waterBike') {
+        // Slow down water bike
+        const waterBike = currentVehicle as WaterBike;
+        const updatedWaterBike = { ...waterBike, speed: Math.max(0, waterBike.speed - 0.2) };
+        player = { ...player, currentCar: updatedWaterBike };
+        waterBikes = waterBikes.map(wb => wb.id === updatedWaterBike.id ? updatedWaterBike : wb);
+      }
     }
     
-    // Tirer
+    // Shooting
     if (keysPressed.has(' ') && player.hasGun && !player.inCar) {
-      // Limita la frequenza di fuoco
+      // Limit firing rate
       const now = Date.now();
       const lastBulletTime = state.bullets[state.bullets.length - 1]?.timestamp || 0;
       
-      if (now - lastBulletTime > 200) { // 200ms tra ogni colpo
+      if (now - lastBulletTime > 200) { // 200ms between shots
         const newBullet = playerShoot(player, player.direction);
         bullets = [...bullets, { ...newBullet, timestamp: now }];
       }
     }
     
-    // Entrer/sortir d'une voiture
+    // Enter/exit vehicle
     if (keysPressed.has('e')) {
-      // Aggiungi un controllo per evitare di processare la pressione multipla del tasto E
+      // Add check to avoid processing multiple presses of E key
       const now = Date.now();
       const lastActionTime = state.lastActionTime || 0;
       
-      if (now - lastActionTime > 500) { // 500ms tra ogni azione
+      if (now - lastActionTime > 500) { // 500ms between actions
         if (player.inCar) {
-          // Sortir de la voiture
-          const { updatedPlayer, updatedCar } = exitCar(player);
+          // Exit vehicle
+          const { updatedPlayer, updatedVehicle } = exitVehicle(player);
           player = updatedPlayer;
           
-          if (updatedCar) {
-            cars = cars.map(car => car.id === updatedCar.id ? updatedCar : car);
+          if (updatedVehicle) {
+            if (updatedVehicle.type === 'car') {
+              cars = cars.map(car => car.id === updatedVehicle.id ? updatedVehicle as Car : car);
+            } else if (updatedVehicle.type === 'waterBike') {
+              waterBikes = waterBikes.map(wb => wb.id === updatedVehicle.id ? updatedVehicle as WaterBike : wb);
+            }
           }
         } else {
-          // Chercher une voiture à proximité
+          // Look for nearby vehicle
+          // First check for cars
           const nearbyCar = cars.find(car => !car.driver && detectCollision({
             ...player,
-            width: player.width + 20, // Augmenter la zone de détection
+            width: player.width + 20, // Increase detection zone
             height: player.height + 20
           }, car));
           
           if (nearbyCar) {
-            // Voler la voiture
+            // Steal car
             const { updatedPlayer, updatedCar } = stealCar(player, nearbyCar);
             player = updatedPlayer;
             
-            // Mettre à jour le niveau de recherche
+            // Update wanted level
             player = updateWantedLevel(player, 'carTheft');
             
             cars = cars.map(car => car.id === updatedCar.id ? updatedCar : car);
+          } else {
+            // Check for water bikes
+            const nearbyWaterBike = waterBikes.find(wb => !wb.driver && detectCollision({
+              ...player,
+              width: player.width + 20,
+              height: player.height + 20
+            }, wb));
+            
+            if (nearbyWaterBike) {
+              // Can only use water bike if player is in water
+              if (isInWater(player.position, state)) {
+                const { updatedPlayer, updatedWaterBike } = stealWaterBike(player, nearbyWaterBike);
+                player = updatedPlayer;
+                waterBikes = waterBikes.map(wb => wb.id === updatedWaterBike.id ? updatedWaterBike : wb);
+              } else {
+                // Add message that water bikes can only be used in water
+                state.messages.push({
+                  sender: 'System',
+                  text: 'Water bikes can only be used in water!',
+                  timestamp: new Date().toISOString(),
+                  type: 'system'
+                });
+                state.lastChatTime = Date.now();
+                state.showChat = true;
+              }
+            }
           }
         }
         
-        // Aggiorna l'ultimo tempo di azione
-        return { ...state, player, bullets, cars, lastActionTime: now };
+        // Update last action time
+        return { ...state, player, bullets, cars, waterBikes, lastActionTime: now };
       }
     }
     
-    return { ...state, player, bullets, cars };
+    return { ...state, player, bullets, cars, waterBikes };
   }, [keysPressed]);
   
-  // Aggiorna l'AI dei pedoni
+  // Update pedestrian AI
   const updatePedestrians = useCallback((pedestrians: Pedestrian[], gameState: GameState): Pedestrian[] => {
     return pedestrians.map(pedestrian => {
       if (!pedestrian.isAlive) return pedestrian;
       
-      // Cambia direzione ogni tanto
+      // Change direction occasionally
       const now = Date.now();
-      const changeDirectionInterval = 2000 + Math.random() * 3000; // 2-5 secondi
+      const changeDirectionInterval = 2000 + Math.random() * 3000; // 2-5 seconds
       
       let direction = pedestrian.direction;
       let newPosition = { ...pedestrian.position };
       
-      // Se il pedone ha waypoints, segui quelli
+      // If pedestrian has waypoints, follow them
       if (pedestrian.waypoints && pedestrian.waypoints.length > 0) {
         const currentWaypoint = pedestrian.waypoints[pedestrian.currentWaypoint];
         const distToWaypoint = getDistance(pedestrian.position, currentWaypoint);
         
-        // Se siamo abbastanza vicini al waypoint, vai al prossimo
+        // If close enough to waypoint, go to next
         if (distToWaypoint < 20) {
           pedestrian.currentWaypoint = (pedestrian.currentWaypoint + 1) % pedestrian.waypoints.length;
         } else {
-          // Calcola la direzione verso il waypoint
+          // Calculate direction to waypoint
           if (Math.abs(currentWaypoint.x - pedestrian.position.x) > Math.abs(currentWaypoint.y - pedestrian.position.y)) {
             direction = currentWaypoint.x > pedestrian.position.x ? 'right' : 'left';
           } else {
@@ -304,7 +413,7 @@ const Game: React.FC = () => {
         pedestrian.lastDirectionChange = now;
       }
       
-      // Muovi il pedone
+      // Move pedestrian
       newPosition = moveEntity({ ...pedestrian, direction }, direction, gameState);
       
       return {
@@ -316,29 +425,35 @@ const Game: React.FC = () => {
     });
   }, []);
   
-  // Mise à jour du jeu
+  // Game update
   useEffect(() => {
     const gameLoop = setInterval(() => {
       setGameState(prevState => {
-        // Sortir si le jeu est terminé
+        // Exit if game is over
         if (prevState.gameOver) {
           return prevState;
         }
         
-        // Traiter les entrées utilisateur
-        let updatedState = handleUserInput(prevState);
+        // Handle chat timeout (hide chat after 3 seconds)
+        let showChat = prevState.showChat;
+        if (showChat && prevState.lastChatTime && Date.now() - prevState.lastChatTime > 3000) {
+          showChat = false;
+        }
         
-        // Aggiorna i pedoni
+        // Process user input
+        let updatedState = { ...handleUserInput(prevState), showChat };
+        
+        // Update pedestrians
         const updatedPedestrians = updatePedestrians(updatedState.pedestrians, updatedState);
         
-        // Mettre à jour les balles
+        // Update bullets
         let updatedBullets = updatedState.bullets
           .map(bullet => {
-            // Déplacer la balle
+            // Move bullet
             const newPosition = moveEntity(bullet, bullet.direction, updatedState);
             const distanceTraveled = bullet.distanceTraveled + bullet.speed;
             
-            // Vérifier si la balle a dépassé sa portée
+            // Check if bullet has exceeded range
             if (distanceTraveled > bullet.range) {
               return { ...bullet, isAlive: false };
             }
@@ -351,39 +466,122 @@ const Game: React.FC = () => {
           })
           .filter(bullet => bullet.isAlive);
         
-        // Détecter les collisions des balles avec d'autres entités
+        // Detect bullet collisions with entities
+        // First, pedestrians
         updatedPedestrians.forEach(pedestrian => {
+          if (!pedestrian.isAlive) return;
+          
           updatedBullets.forEach(bullet => {
             if (detectCollision(bullet, pedestrian)) {
-              // Marquer la balle comme morte
+              // Mark bullet as dead
               bullet.isAlive = false;
               
-              // Marquer le piéton comme mort
+              // Mark pedestrian as dead
               pedestrian.isAlive = false;
               
-              // Augmenter le niveau de recherche du joueur
+              // Increase player's wanted level
               if (bullet.shooter.type === 'player') {
                 updatedState.player = updateWantedLevel(updatedState.player, 'killing');
                 
-                // Aggiungi un messaggio di sistema
+                // Add system message
                 updatedState.messages.push({
-                  sender: 'Sistema',
-                  text: `${updatedState.player.name} ha ucciso un pedone! Livello di ricerca aumentato.`,
+                  sender: 'System',
+                  text: `${updatedState.player.name} killed a pedestrian! Wanted level increased.`,
                   timestamp: new Date().toISOString(),
                   type: 'system'
                 });
+                updatedState.lastChatTime = Date.now();
+                updatedState.showChat = true;
+              }
+            }
+          });
+          
+          // Check for collisions with cars (pedestrians run over by cars)
+          updatedState.cars.forEach(car => {
+            if (car.driver && car.velocity && (Math.abs(car.velocity.x) > 1 || Math.abs(car.velocity.y) > 1)) {
+              if (detectCollision(car, pedestrian)) {
+                // Mark pedestrian as dead
+                pedestrian.isAlive = false;
+                
+                // Increase player's wanted level if player is driving
+                if (car.driver.type === 'player') {
+                  updatedState.player = updateWantedLevel(updatedState.player, 'killing');
+                  
+                  // Add system message
+                  updatedState.messages.push({
+                    sender: 'System',
+                    text: `${updatedState.player.name} ran over a pedestrian! Wanted level increased.`,
+                    timestamp: new Date().toISOString(),
+                    type: 'system'
+                  });
+                  updatedState.lastChatTime = Date.now();
+                  updatedState.showChat = true;
+                }
               }
             }
           });
         });
         
-        // Filtrer les piétons morts
+        // Check bullet collisions with police
+        updatedState.police.forEach(policeman => {
+          if (!policeman.isAlive) return;
+          
+          updatedBullets.forEach(bullet => {
+            if (bullet.shooter.type === 'player' && detectCollision(bullet, policeman)) {
+              // Mark bullet as dead
+              bullet.isAlive = false;
+              
+              // Mark police as dead
+              policeman.isAlive = false;
+              
+              // Significantly increase player's wanted level
+              updatedState.player = updateWantedLevel(updatedState.player, 'policeShooting');
+              
+              // Add system message
+              updatedState.messages.push({
+                sender: 'System',
+                text: `${updatedState.player.name} shot a police officer! Wanted level greatly increased!`,
+                timestamp: new Date().toISOString(),
+                type: 'system'
+              });
+              updatedState.lastChatTime = Date.now();
+              updatedState.showChat = true;
+            }
+          });
+        });
+        
+        // Check bullet collisions with player
+        if (updatedState.player.isAlive) {
+          updatedBullets.forEach(bullet => {
+            if (bullet.shooter.type !== 'player' && detectCollision(bullet, updatedState.player)) {
+              // Mark bullet as dead
+              bullet.isAlive = false;
+              
+              // Player takes damage, game over if shot by police
+              if (bullet.shooter.type === 'police') {
+                updatedState.gameOver = true;
+                
+                // Add system message
+                updatedState.messages.push({
+                  sender: 'System',
+                  text: `${updatedState.player.name} was shot by the police! GAME OVER!`,
+                  timestamp: new Date().toISOString(),
+                  type: 'system'
+                });
+                updatedState.lastChatTime = Date.now();
+                updatedState.showChat = true;
+              }
+            }
+          });
+        }
+        
+        // Filter out dead pedestrians
         const alivePedestrians = updatedPedestrians.filter(ped => ped.isAlive);
         
-        // Spawn di nuovi pedoni se ce ne sono pochi
+        // Spawn new pedestrians if there are few
         let finalPedestrians = [...alivePedestrians];
         if (alivePedestrians.length < 15) {
-          // Aggiungi nuovi pedoni
+          // Add new pedestrians
           const numNewPedestrians = Math.min(3, 15 - alivePedestrians.length);
           
           for (let i = 0; i < numNewPedestrians; i++) {
@@ -406,22 +604,49 @@ const Game: React.FC = () => {
           }
         }
         
-        // Mettre à jour la police
-        const updatedPolice = updatedState.police.map(policeman => 
-          policeChasePlayer(policeman, updatedState.player)
-        ).map(policeman => 
-          movePolice(policeman, updatedState)
-        );
+        // Update police
+        const updatedPolice = updatedState.police
+          .filter(policeman => policeman.isAlive)
+          .map(policeman => policeChasePlayer(policeman, updatedState.player))
+          .map(policeman => {
+            const updatedPoliceman = movePolice(policeman, updatedState);
+            
+            // Police shooting
+            if (
+              updatedPoliceman.hasGun && 
+              updatedPoliceman.chasing && 
+              updatedPoliceman.target &&
+              updatedPoliceman.lastShot !== undefined &&
+              updatedPoliceman.lastShot !== policeman.lastShot // Check if shooting cooldown was reset in movePolice
+            ) {
+              const newBullet = policeShoot(updatedPoliceman, updatedPoliceman.target.position);
+              updatedBullets.push(newBullet);
+            }
+            
+            return updatedPoliceman;
+          });
         
-        // Vérifier si le joueur est capturé par la police
-        let gameOver = false;
-        updatedPolice.forEach(policeman => {
-          if (detectCollision(policeman, updatedState.player)) {
-            gameOver = true;
-          }
-        });
+        // Check if player is captured by police
+        let gameOver = updatedState.gameOver;
+        if (!gameOver) {
+          updatedPolice.forEach(policeman => {
+            if (detectCollision(policeman, updatedState.player)) {
+              gameOver = true;
+              
+              // Add system message
+              updatedState.messages.push({
+                sender: 'System',
+                text: `${updatedState.player.name} was caught by the police! BUSTED!`,
+                timestamp: new Date().toISOString(),
+                type: 'system'
+              });
+              updatedState.lastChatTime = Date.now();
+              updatedState.showChat = true;
+            }
+          });
+        }
         
-        // Aggiorna la camera
+        // Update camera
         const playerX = updatedState.player.position.x;
         const playerY = updatedState.player.position.y;
         
@@ -432,13 +657,64 @@ const Game: React.FC = () => {
         cameraX = Math.max(0, Math.min(cameraX, GAME_WIDTH - VIEWPORT_WIDTH));
         cameraY = Math.max(0, Math.min(cameraY, GAME_HEIGHT - VIEWPORT_HEIGHT));
         
+        // Spawn new police if too few
+        if (updatedPolice.length < 5) {
+          const newPolice = Array.from({ length: 10 - updatedPolice.length }).map(() => {
+            const isInPoliceCar = Math.random() > 0.5;
+            const police: Police = {
+              id: `police-${generateId()}`,
+              type: 'police',
+              position: getRandomPosition(GAME_WIDTH, GAME_HEIGHT),
+              direction: ['up', 'down', 'left', 'right'][Math.floor(Math.random() * 4)] as Direction,
+              speed: isInPoliceCar ? 1 : 2,
+              width: 20,
+              height: 20,
+              isAlive: true,
+              chasing: false,
+              detectionRadius: 150,
+              patrolPath: Array.from({ length: 3 + Math.floor(Math.random() * 3) }).map(() => 
+                getRandomPosition(GAME_WIDTH, GAME_HEIGHT)
+              ),
+              currentPatrolIndex: 0,
+              hasGun: true,
+              inCar: isInPoliceCar
+            };
+            
+            // Add police car if needed
+            if (isInPoliceCar) {
+              const car: Car = {
+                id: `police-car-${generateId()}`,
+                type: 'car',
+                position: { ...police.position },
+                direction: police.direction,
+                speed: 0,
+                width: 30,
+                height: 15,
+                isAlive: true,
+                color: '#3333FF', // Police car color
+                driver: police,
+                maxSpeed: 6,
+                driftFactor: 0.95,
+                velocity: { x: 0, y: 0 }
+              };
+              updatedState.cars.push(car);
+            }
+            
+            return police;
+          });
+          
+          updatedState.police = [...updatedPolice, ...newPolice];
+        } else {
+          updatedState.police = updatedPolice;
+        }
+        
         return {
           ...updatedState,
           bullets: updatedBullets,
           pedestrians: finalPedestrians,
-          police: updatedPolice,
           gameOver,
-          camera: { x: cameraX, y: cameraY }
+          camera: { x: cameraX, y: cameraY },
+          showChat
         };
       });
     }, 1000 / FPS);
@@ -446,7 +722,7 @@ const Game: React.FC = () => {
     return () => clearInterval(gameLoop);
   }, [handleUserInput, updatePedestrians]);
   
-  // Calcola le posizioni relative alla viewport
+  // Calculate relative positions to viewport
   const getRelativePosition = (position: { x: number, y: number }) => {
     return {
       x: position.x - viewportPosition.x,
@@ -454,7 +730,7 @@ const Game: React.FC = () => {
     };
   };
   
-  // Verifica se un'entità è visibile nella viewport
+  // Check if an entity is visible in viewport
   const isEntityVisible = (entity: { position: { x: number, y: number }, width: number, height: number }) => {
     return (
       entity.position.x + entity.width >= viewportPosition.x &&
@@ -464,7 +740,7 @@ const Game: React.FC = () => {
     );
   };
   
-  // Rendu du jeu
+  // Game rendering
   return (
     <div className="w-full h-full flex flex-col items-center">
       <GameHUD wantedLevel={gameState.player.wantedLevel} />
@@ -489,24 +765,32 @@ const Game: React.FC = () => {
         >
           <GameMap width={GAME_WIDTH} height={GAME_HEIGHT} />
           
-          {/* Rendu des entités */}
+          {/* Render water bikes */}
+          {gameState.waterBikes.filter(isEntityVisible).map(waterBike => (
+            <WaterBikeEntity key={waterBike.id} waterBike={waterBike} />
+          ))}
+          
+          {/* Render cars */}
           {gameState.cars.filter(isEntityVisible).map(car => (
             <CarEntity key={car.id} car={car} />
           ))}
           
+          {/* Render pedestrians */}
           {gameState.pedestrians.filter(isEntityVisible).map(pedestrian => (
             <PedestrianEntity key={pedestrian.id} pedestrian={pedestrian} />
           ))}
           
-          {gameState.police.filter(isEntityVisible).map(policeman => (
+          {/* Render police */}
+          {gameState.police.filter(p => !p.inCar && isEntityVisible(p)).map(policeman => (
             <PoliceEntity key={policeman.id} police={policeman} />
           ))}
           
+          {/* Render bullets */}
           {gameState.bullets.filter(isEntityVisible).map(bullet => (
             <BulletEntity key={bullet.id} bullet={bullet} />
           ))}
           
-          {/* Afficher le joueur uniquement s'il n'est pas dans une voiture */}
+          {/* Show player only if not in vehicle */}
           {!gameState.player.inCar && (
             <PlayerEntity player={gameState.player} />
           )}
@@ -521,33 +805,35 @@ const Game: React.FC = () => {
                 value={chatMessage}
                 onChange={(e) => setChatMessage(e.target.value)}
                 className="flex-grow bg-gray-800 text-white p-2 rounded-l"
-                placeholder="Scrivi un messaggio..."
+                placeholder="Write a message..."
                 autoFocus
               />
               <button 
                 onClick={handleSendMessage}
                 className="bg-blue-600 text-white px-4 py-2 rounded-r"
               >
-                Invia
+                Send
               </button>
             </div>
           </div>
         )}
         
         {/* Chat messages */}
-        <GameChat messages={gameState.messages} />
+        {gameState.showChat && (
+          <GameChat messages={gameState.messages} />
+        )}
         
-        {/* Affichage de fin de jeu */}
+        {/* Game over display */}
         {gameState.gameOver && (
           <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50">
             <div className="text-white text-center">
               <h2 className="text-4xl font-bold mb-4">BUSTED!</h2>
-              <p className="text-xl mb-4">Vous avez été arrêté par la police!</p>
+              <p className="text-xl mb-4">You were caught by the police!</p>
               <button 
                 className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
                 onClick={() => window.location.reload()}
               >
-                Rejouer
+                Play Again
               </button>
             </div>
           </div>
@@ -555,11 +841,11 @@ const Game: React.FC = () => {
       </div>
       
       <div className="mt-4 text-gray-200 bg-gray-800 p-4 rounded-lg">
-        <p className="text-lg font-semibold">Contrôles:</p>
-        <p>WASD o frecce: Movimento</p>
-        <p>E: Entra/Esci da un'auto</p>
-        <p>Spazio: Spara</p>
-        <p>T: Apri chat</p>
+        <p className="text-lg font-semibold">Controls:</p>
+        <p>WASD or arrows: Movement</p>
+        <p>E: Enter/Exit vehicle</p>
+        <p>Space: Shoot</p>
+        <p>T: Open chat</p>
       </div>
     </div>
   );

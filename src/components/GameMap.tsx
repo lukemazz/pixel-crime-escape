@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 
 interface GameMapProps {
   width: number;
@@ -37,90 +37,96 @@ interface Park {
 }
 
 const GameMap: React.FC<GameMapProps> = ({ width, height }) => {
-  // Generare una griglia di strade
-  const roads: Road[] = [];
-  
-  // Strade orizzontali
-  for (let y = 150; y < height; y += 250) {
-    roads.push({
-      x: 0,
-      y,
-      width,
-      height: 40,
-      isVertical: false
-    });
-  }
-  
-  // Strade verticali
-  for (let x = 150; x < width; x += 250) {
-    roads.push({
-      x,
-      y: 0,
-      width: 40,
-      height,
-      isVertical: true
-    });
-  }
-  
-  // Generare i quartieri
-  const buildings: Building[] = [];
-  const buildingTypes: ('residential' | 'commercial' | 'industrial')[] = ['residential', 'commercial', 'industrial'];
-  
-  // Cicla attraverso i "quartieri" creati dalle strade
-  for (let gridX = 0; gridX < Math.floor(width / 250); gridX++) {
-    for (let gridY = 0; gridY < Math.floor(height / 250); gridY++) {
-      const startX = gridX * 250 + 50;
-      const startY = gridY * 250 + 50;
-      const quarterType = buildingTypes[Math.floor(Math.random() * buildingTypes.length)];
-      
-      // Genera diversi edifici all'interno di ogni quartiere
-      const buildingsCount = 3 + Math.floor(Math.random() * 5);
-      
-      for (let i = 0; i < buildingsCount; i++) {
-        const buildingX = startX + Math.random() * 100;
-        const buildingY = startY + Math.random() * 100;
-        const buildingWidth = 30 + Math.random() * 60;
-        const buildingHeight = 30 + Math.random() * 60;
+  // Using useMemo to ensure the map is generated only once and remains static
+  const { roads, buildings, waters, parks } = useMemo(() => {
+    // Generate a grid of roads
+    const roads: Road[] = [];
+    
+    // Horizontal roads
+    for (let y = 150; y < height; y += 250) {
+      roads.push({
+        x: 0,
+        y,
+        width,
+        height: 40,
+        isVertical: false
+      });
+    }
+    
+    // Vertical roads
+    for (let x = 150; x < width; x += 250) {
+      roads.push({
+        x,
+        y: 0,
+        width: 40,
+        height,
+        isVertical: true
+      });
+    }
+    
+    // Generate districts
+    const buildings: Building[] = [];
+    const buildingTypes: ('residential' | 'commercial' | 'industrial')[] = ['residential', 'commercial', 'industrial'];
+    
+    // Cycle through the "districts" created by roads
+    for (let gridX = 0; gridX < Math.floor(width / 250); gridX++) {
+      for (let gridY = 0; gridY < Math.floor(height / 250); gridY++) {
+        const startX = gridX * 250 + 50;
+        const startY = gridY * 250 + 50;
+        const quarterType = buildingTypes[Math.floor(Math.random() * buildingTypes.length)];
         
-        // Evita sovrapposizioni con strade
-        const overlapsRoad = roads.some(road => (
-          (buildingX < road.x + road.width) &&
-          (buildingX + buildingWidth > road.x) &&
-          (buildingY < road.y + road.height) &&
-          (buildingY + buildingHeight > road.y)
-        ));
+        // Generate multiple buildings within each district
+        const buildingsCount = 3 + Math.floor(Math.random() * 5);
         
-        if (!overlapsRoad) {
-          buildings.push({
-            x: buildingX,
-            y: buildingY,
-            width: buildingWidth,
-            height: buildingHeight,
-            type: quarterType
-          });
+        for (let i = 0; i < buildingsCount; i++) {
+          const buildingX = startX + Math.random() * 100;
+          const buildingY = startY + Math.random() * 100;
+          const buildingWidth = 30 + Math.random() * 60;
+          const buildingHeight = 30 + Math.random() * 60;
+          
+          // Avoid overlapping with roads
+          const overlapsRoad = roads.some(road => (
+            (buildingX < road.x + road.width) &&
+            (buildingX + buildingWidth > road.x) &&
+            (buildingY < road.y + road.height) &&
+            (buildingY + buildingHeight > road.y)
+          ));
+          
+          if (!overlapsRoad) {
+            buildings.push({
+              x: buildingX,
+              y: buildingY,
+              width: buildingWidth,
+              height: buildingHeight,
+              type: quarterType
+            });
+          }
         }
       }
     }
-  }
-  
-  // Generare acqua (laghi, fiumi)
-  const waters: Water[] = [
-    { x: width * 0.05, y: height * 0.7, width: width * 0.15, height: height * 0.2 },
-    { x: width * 0.7, y: height * 0.1, width: width * 0.2, height: height * 0.15 }
-  ];
-  
-  // Generare parchi
-  const parks: Park[] = [
-    { x: width * 0.3, y: height * 0.3, width: width * 0.1, height: height * 0.1 },
-    { x: width * 0.6, y: height * 0.6, width: width * 0.15, height: height * 0.15 }
-  ];
+    
+    // Generate water (lakes, rivers) - making a larger central lake for water bikes
+    const waters: Water[] = [
+      { x: width * 0.4, y: height * 0.4, width: width * 0.2, height: height * 0.2 },
+      { x: width * 0.05, y: height * 0.7, width: width * 0.15, height: height * 0.2 },
+      { x: width * 0.7, y: height * 0.1, width: width * 0.2, height: height * 0.15 }
+    ];
+    
+    // Generate parks
+    const parks: Park[] = [
+      { x: width * 0.3, y: height * 0.3, width: width * 0.1, height: height * 0.1 },
+      { x: width * 0.6, y: height * 0.6, width: width * 0.15, height: height * 0.15 }
+    ];
+    
+    return { roads, buildings, waters, parks };
+  }, [width, height]); // Dependencies for useMemo
   
   return (
     <div className="absolute inset-0 bg-grass">
-      {/* Sfondo */}
+      {/* Background */}
       <div className="absolute inset-0 bg-emerald-800"></div>
       
-      {/* Acqua */}
+      {/* Water */}
       {waters.map((water, index) => (
         <div 
           key={`water-${index}`}
@@ -134,12 +140,12 @@ const GameMap: React.FC<GameMapProps> = ({ width, height }) => {
             boxShadow: 'inset 0 0 10px rgba(0, 0, 0, 0.5)'
           }}
         >
-          {/* Leggere onde sull'acqua */}
+          {/* Subtle waves on water */}
           <div className="absolute inset-0 opacity-20 bg-blue-400 animate-pulse"></div>
         </div>
       ))}
       
-      {/* Parchi */}
+      {/* Parks */}
       {parks.map((park, index) => (
         <div 
           key={`park-${index}`}
@@ -153,7 +159,7 @@ const GameMap: React.FC<GameMapProps> = ({ width, height }) => {
             boxShadow: 'inset 0 0 10px rgba(0, 0, 0, 0.2)'
           }}
         >
-          {/* Alberi nel parco */}
+          {/* Trees in the park */}
           {Array.from({ length: 10 }).map((_, i) => (
             <div 
               key={`tree-${index}-${i}`}
@@ -169,7 +175,7 @@ const GameMap: React.FC<GameMapProps> = ({ width, height }) => {
         </div>
       ))}
       
-      {/* Strade */}
+      {/* Roads */}
       {roads.map((road, index) => (
         <div 
           key={`road-${index}`}
@@ -182,7 +188,7 @@ const GameMap: React.FC<GameMapProps> = ({ width, height }) => {
             zIndex: 10
           }}
         >
-          {/* Linee mediane della strada */}
+          {/* Center lines of the road */}
           {road.isVertical ? (
             <div 
               className="absolute h-full w-1 bg-yellow-400 left-1/2 transform -translate-x-1/2"
@@ -203,9 +209,9 @@ const GameMap: React.FC<GameMapProps> = ({ width, height }) => {
         </div>
       ))}
       
-      {/* Edifici */}
+      {/* Buildings */}
       {buildings.map((building, index) => {
-        // Determina il colore dell'edificio in base al tipo
+        // Determine the color of the building based on type
         let bgColor = 'bg-building';
         let windowColor = 'bg-yellow-100';
         
@@ -236,7 +242,7 @@ const GameMap: React.FC<GameMapProps> = ({ width, height }) => {
               zIndex: 20
             }}
           >
-            {/* Finestre degli edifici */}
+            {/* Windows of buildings */}
             {Array.from({ length: Math.floor(building.width / 15) }).map((_, i) => (
               Array.from({ length: Math.floor(building.height / 15) }).map((_, j) => (
                 <div 

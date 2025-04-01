@@ -6,7 +6,7 @@ export type Position = {
 
 export type Direction = 'up' | 'down' | 'left' | 'right';
 
-export type EntityType = 'player' | 'pedestrian' | 'police' | 'car' | 'bullet';
+export type EntityType = 'player' | 'pedestrian' | 'police' | 'car' | 'bullet' | 'waterBike';
 
 export interface Entity {
   id: string;
@@ -22,7 +22,7 @@ export interface Entity {
 export interface Player extends Entity {
   type: 'player';
   inCar: boolean;
-  currentCar: Car | null;
+  currentCar: Car | WaterBike | null;
   wantedLevel: number;
   hasGun: boolean;
   name: string;
@@ -43,6 +43,10 @@ export interface Police extends Entity {
   target?: Player;
   detectionRadius: number;
   currentPatrolIndex?: number;
+  hasGun: boolean;
+  lastShot?: number;
+  inCar?: boolean;
+  currentCar?: Car | null;
 }
 
 export interface Car extends Entity {
@@ -50,6 +54,19 @@ export interface Car extends Entity {
   color: string;
   driver: Player | Pedestrian | Police | null;
   maxSpeed: number;
+  driftFactor: number;
+  velocity: {
+    x: number;
+    y: number;
+  };
+}
+
+export interface WaterBike extends Entity {
+  type: 'waterBike';
+  color: string;
+  driver: Player | null;
+  maxSpeed: number;
+  isInWater: boolean;
 }
 
 export interface Bullet extends Entity {
@@ -73,6 +90,7 @@ export type GameState = {
   pedestrians: Pedestrian[];
   police: Police[];
   cars: Car[];
+  waterBikes: WaterBike[];
   bullets: Bullet[];
   score: number;
   gameOver: boolean;
@@ -82,4 +100,6 @@ export type GameState = {
     y: number;
   };
   lastActionTime?: number;
+  lastChatTime?: number;
+  showChat: boolean;
 };

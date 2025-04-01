@@ -22,9 +22,10 @@ const PlayerEntity: React.FC<PlayerEntityProps> = ({ player }) => {
           player.direction === 'down' ? '180deg' :
           player.direction === 'left' ? '270deg' : '0deg'
         })`,
+        zIndex: 30 // Ensure player is always on top
       }}
     >
-      {/* Yeux pour indiquer la direction */}
+      {/* Eyes to indicate direction */}
       <div className="absolute bg-white w-2 h-2 rounded-full" style={{ left: '25%', top: '25%' }}></div>
       <div className="absolute bg-white w-2 h-2 rounded-full" style={{ right: '25%', top: '25%' }}></div>
     </div>
